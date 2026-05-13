@@ -27,7 +27,7 @@ export function getOverlappingLocation(
   return null;
 }
 
-export function handleMove(gs: GameState, move: ArmyMove): MoveOutcome {
+export function handlerMove(gs: GameState, move: ArmyMove): MoveOutcome {
   console.log();
   console.log("==== Move Detected ====");
   console.log(

@@ -40,7 +40,7 @@ export async function clientWelcome(): Promise<string> {
 }
 
 export function printServerHelp(): void {
-  console.log("Possible commands:");
+  console.log("\nPossible commands:");
   console.log("* pause");
   console.log("* resume");
   console.log("* quit");
