@@ -27,12 +27,13 @@ export function getOverlappingLocation(
   return null;
 }
 
-export function handlerMove(gs: GameState, move: ArmyMove): MoveOutcome {
+export function handleMove(gs: GameState, move: ArmyMove): MoveOutcome {
   console.log();
   console.log("==== Move Detected ====");
   console.log(
     `${move.player.username} is moving ${move.units.length} unit(s) to ${move.toLocation}`
   );
+
   for (const unit of move.units) {
     console.log(`* ${unit.rank}`);
   }

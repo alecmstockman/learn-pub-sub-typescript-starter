@@ -1,19 +1,21 @@
 import { clientWelcome, getInput, commandStatus, printClientHelp, printQuit } from "../internal/gamelogic/gamelogic.js";
-import { declareAndBind, SimpleQueueType } from "../internal/pubsub/consume.js";
+import { SimpleQueueType } from "../internal/pubsub/consume.js";
 import { ExchangePerilDirect, ExchangePerilTopic, PauseKey } from "../internal/routing/routing.js"
 import amqp from "amqplib";
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
-import { commandMove, MoveOutcome } from "../internal/gamelogic/move.js";
+import { commandMove } from "../internal/gamelogic/move.js";
 import { subscribeJSON } from "../internal/pubsub/subscribe.js";
 import { handlerPause } from "./handler.js";
-import { handleMove } from "./handler.js";
-// import { ArmyMove } from "../internal/gamelogic/gamedata.js";
+import { handlerMove } from "./handler.js";
+import { publishJSON } from "../internal/pubsub/publish.js";
+import { ArmyMovesPrefix } from "../internal/routing/routing.js";
 
 
 async function main() {
   const rabbitConnString = "amqp://guest:guest@localhost:5672";
   const conn = await amqp.connect(rabbitConnString);
+  const publishCh = await conn.createConfirmChannel();
   console.log("Peril game client connected to RabbitMQ!");
   
   ["SIGINT", "SIGTERM"].forEach((signal) =>
@@ -41,41 +43,46 @@ async function main() {
     handlerPause(gs),
   );
 
-
   await subscribeJSON(
     conn,
     ExchangePerilTopic,
-    `army_moves.${username}`,
-    "army_moves.*",
+    `${ArmyMovesPrefix}.${username}`,
+    `${ArmyMovesPrefix}.*`,
     SimpleQueueType.Transient,
-    handleMove(gs),
+    handlerMove(gs),
   ); 
 
   while (true) {
     const words = await getInput();
-
+    if (words.length === 0) {
+      continue;
+    }
     const command = words[0];
-    try {
-
-      if (command === "spawn") {
-        commandSpawn(gs, words);
-      } else if (command === "move") {
-        commandMove(gs, words);
-      } else if (command === "status") {
-        commandStatus(gs);
-      } else if (command === "help") {
-        printClientHelp()
-      } else if (command === "spam") {
-        console.log("Spamming not allowed yet!")
-      } else if (command === "quit") {
-        printQuit();
-      } else {
-        console.log("Unknown command");
-        continue;
+    if (command === "move") {
+      try {
+        const armyMove = commandMove(gs, words);
+        publishJSON(publishCh, ExchangePerilTopic, armyMove.player.username, armyMove)
+      } catch (err) {
+        console.log((err as Error).message);
       }
-
-    } catch (err) {
-      console.log(err);
+    } else if (command === "spawn") {
+      try {
+        commandSpawn(gs, words);
+      } catch (err) {
+        console.log((err as Error).message);
+      }
+    } else if (command === "status") {
+      commandStatus(gs);
+    } else if (command === "help") {
+      printClientHelp()
+    } else if (command === "spam") {
+      console.log("Spamming not allowed yet!")
+    } else if (command === "quit") {
+      printQuit();
+      process.exit(0);
+    } else {
+      console.log("Unknown command");
+      continue;
     }
     
   }

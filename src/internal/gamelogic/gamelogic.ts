@@ -7,23 +7,23 @@ const rl = readline.createInterface({
 });
 
 export function printClientHelp(): void {
-  console.log("Possible commands:");
-  console.log("* move <location> <unitID> <unitID> <unitID>...");
-  console.log("    example:");
-  console.log("    move asia 1");
-  console.log("* spawn <location> <rank>");
-  console.log("    example:");
-  console.log("    spawn europe infantry");
-  console.log("* status");
-  console.log("* spam <n>");
-  console.log("    example:");
-  console.log("    spam 5");
-  console.log("* quit");
-  console.log("* help");
+  console.log("    Possible commands:");
+  console.log("        * move <location> <unitID> <unitID> <unitID>...");
+  console.log("            example:");
+  console.log("            move asia 1");
+  console.log("        * spawn <location> <rank>");
+  console.log("            example:");
+  console.log("            spawn europe infantry");
+  console.log("        * status");
+  console.log("        * spam <n>");
+  console.log("            example:");
+  console.log("            spam 5");
+  console.log("        * quit");
+  console.log("        * help");
 }
 
 export async function clientWelcome(): Promise<string> {
-  console.log("Welcome to the Peril client!");
+  console.log("\n\n---- Welcome to the Peril client! ----");
   const words = await getInput("Please enter your username:\n");
   if (words.length === 0) {
     throw new Error("you must enter a username. goodbye");
@@ -34,17 +34,17 @@ export async function clientWelcome(): Promise<string> {
     throw new Error("you must enter a username. goodbye");
   }
 
-  console.log(`Welcome, ${username}!`);
+  console.log(`Welcome, ${username}!\n`);
   printClientHelp();
   return username;
 }
 
 export function printServerHelp(): void {
   console.log("\nPossible commands:");
-  console.log("* pause");
-  console.log("* resume");
-  console.log("* quit");
-  console.log("* help");
+  console.log("    * pause");
+  console.log("    * resume");
+  console.log("    * quit");
+  console.log("    * help");
 }
 
 export function getMaliciousLog(): string {
