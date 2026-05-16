@@ -1,15 +1,16 @@
 import { clientWelcome, getInput, commandStatus, printClientHelp, printQuit } from "../internal/gamelogic/gamelogic.js";
 import { SimpleQueueType } from "../internal/pubsub/consume.js";
-import { ExchangePerilDirect, ExchangePerilTopic, PauseKey } from "../internal/routing/routing.js"
+import { ExchangePerilDirect, ExchangePerilTopic, GameLogSlug, PauseKey, WarRecognitionsPrefix } from "../internal/routing/routing.js"
 import amqp from "amqplib";
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
 import { commandMove } from "../internal/gamelogic/move.js";
-import { subscribeJSON } from "../internal/pubsub/subscribe.js";
+import { subscribeJSON } from "../internal/pubsub/consume.js";
 import { handlerPause } from "./handler.js";
 import { handlerMove } from "./handler.js";
 import { publishJSON } from "../internal/pubsub/publish.js";
 import { ArmyMovesPrefix } from "../internal/routing/routing.js";
+import { handlerWar } from "./handler.js";
 
 
 async function main() {
@@ -41,6 +42,7 @@ async function main() {
     PauseKey, 
     SimpleQueueType.Transient,
     handlerPause(gs),
+    // JSON.parse(),
   );
 
   await subscribeJSON(
@@ -49,8 +51,17 @@ async function main() {
     `${ArmyMovesPrefix}.${username}`,
     `${ArmyMovesPrefix}.*`,
     SimpleQueueType.Transient,
-    handlerMove(gs),
+    handlerMove(gs, publishCh)
   ); 
+
+  await subscribeJSON(
+    conn,
+    ExchangePerilTopic,
+    `${WarRecognitionsPrefix}.${username}`,
+    `${WarRecognitionsPrefix}.*`,
+    SimpleQueueType.Durable,
+    handlerWar(gs, publishCh)
+  );
 
   while (true) {
     const words = await getInput();
@@ -61,7 +72,12 @@ async function main() {
     if (command === "move") {
       try {
         const armyMove = commandMove(gs, words);
-        publishJSON(publishCh, ExchangePerilTopic, armyMove.player.username, armyMove)
+        publishJSON(
+          publishCh, 
+          ExchangePerilTopic, 
+          `${ArmyMovesPrefix}.${username}`, 
+          armyMove
+        );
       } catch (err) {
         console.log((err as Error).message);
       }
@@ -92,3 +108,9 @@ main().catch((err) => {
   console.error("Fatal error:", err);
   process.exit(1);
 });
+
+
+
+
+
+

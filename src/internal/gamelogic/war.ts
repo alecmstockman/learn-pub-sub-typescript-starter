@@ -2,6 +2,7 @@ import { GameState } from "./gamestate.js";
 import { type RecognitionOfWar, type Unit } from "./gamedata.js";
 import { getOverlappingLocation } from "./move.js";
 
+
 export enum WarOutcome {
   NotInvolved,
   NoUnits,
