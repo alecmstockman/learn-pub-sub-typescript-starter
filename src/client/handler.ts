@@ -9,6 +9,7 @@ import { ExchangePerilTopic, WarRecognitionsPrefix } from "../internal/routing/r
 import type { ConfirmChannel } from "amqplib";
 import { handleWar, WarOutcome } from "../internal/gamelogic/war.js";
 import { publishGameLog } from "../internal/pubsub/publish.js";
+import { writeLog, type GameLog } from "../internal/gamelogic/logs.js";
 
 
 export function handlerPause(gs: GameState): (ps: PlayingState) => AckType {
@@ -102,4 +103,18 @@ export function handlerWar(
             process.stdout.write("> ");
         }
     }
+}
+
+export function handlerGameLog(): (log: GameLog) => Promise<AckType> {
+    return async (log: GameLog): Promise<AckType> => {
+        try {
+            writeLog(log);
+            return AckType.Ack;
+        } catch (err) {
+            console.log(`Unable to wrie log ${err}`);
+            return AckType.NackDiscard;
+        } finally {
+            process.stdout.write("> ");
+        }        
+    };  
 }

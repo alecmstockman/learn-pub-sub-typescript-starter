@@ -1,16 +1,18 @@
-import { clientWelcome, getInput, commandStatus, printClientHelp, printQuit } from "../internal/gamelogic/gamelogic.js";
+import { clientWelcome, getInput, commandStatus, printClientHelp, printQuit, getMaliciousLog } from "../internal/gamelogic/gamelogic.js";
 import { SimpleQueueType } from "../internal/pubsub/consume.js";
 import { ExchangePerilDirect, ExchangePerilTopic, GameLogSlug, PauseKey, WarRecognitionsPrefix } from "../internal/routing/routing.js"
 import amqp from "amqplib";
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
 import { commandMove } from "../internal/gamelogic/move.js";
-import { subscribeJSON } from "../internal/pubsub/consume.js";
+import { subscribeJSON, subscribeMsgPack } from "../internal/pubsub/consume.js";
 import { handlerPause } from "./handler.js";
 import { handlerMove } from "./handler.js";
-import { publishJSON } from "../internal/pubsub/publish.js";
+import { publishGameLog, publishJSON, publishMsgPack } from "../internal/pubsub/publish.js";
 import { ArmyMovesPrefix } from "../internal/routing/routing.js";
 import { handlerWar } from "./handler.js";
+import type { GameLog } from "../internal/gamelogic/logs.js";
+
 
 
 async function main() {
@@ -42,7 +44,6 @@ async function main() {
     PauseKey, 
     SimpleQueueType.Transient,
     handlerPause(gs),
-    // JSON.parse(),
   );
 
   await subscribeJSON(
@@ -51,7 +52,7 @@ async function main() {
     `${ArmyMovesPrefix}.${username}`,
     `${ArmyMovesPrefix}.*`,
     SimpleQueueType.Transient,
-    handlerMove(gs, publishCh)
+    handlerMove(gs, publishCh),
   ); 
 
   await subscribeJSON(
@@ -60,7 +61,7 @@ async function main() {
     `${WarRecognitionsPrefix}.${username}`,
     `${WarRecognitionsPrefix}.*`,
     SimpleQueueType.Durable,
-    handlerWar(gs, publishCh)
+    handlerWar(gs, publishCh),
   );
 
   while (true) {
@@ -92,7 +93,36 @@ async function main() {
     } else if (command === "help") {
       printClientHelp()
     } else if (command === "spam") {
-      console.log("Spamming not allowed yet!")
+      const word = words[1];
+
+      if (!word) {
+        continue
+      }
+
+      const num = Number(word);
+      if (Number.isNaN(num)) {
+        console.log("Unknown command");
+        continue;
+      }
+      
+      console.log(`Spamming ${num} messages`);
+      for (let i = 0; i < num; i++) {
+        const message = getMaliciousLog();
+
+        const log: GameLog = {
+          currentTime: new Date(),
+          username: username,
+          message: message,
+        };
+
+        await publishMsgPack(
+          publishCh,
+          ExchangePerilTopic,
+          `${GameLogSlug}.${username}`,
+          log,
+        )
+      }
+      // console.log("Spamming not allowed yet!")
     } else if (command === "quit") {
       printQuit();
       process.exit(0);
@@ -100,8 +130,7 @@ async function main() {
       console.log("Unknown command");
       continue;
     }
-    
-  }
+  };
 }
 
 main().catch((err) => {

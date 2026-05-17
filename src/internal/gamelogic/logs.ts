@@ -28,3 +28,4 @@ export async function writeLog(gameLog: GameLog): Promise<void> {
     throw new Error(`could not write to logs file: ${err}`);
   }
 }
+

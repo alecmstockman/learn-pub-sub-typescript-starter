@@ -3,7 +3,8 @@ import { publishJSON } from "../internal/pubsub/publish.js";
 import { ArmyMovesPrefix, ExchangeDeadLetter, ExchangePerilDirect, ExchangePerilTopic, GameLogSlug, PauseKey } from "../internal/routing/routing.js";
 import { type PlayingState } from "../internal/gamelogic/gamestate.js";
 import { getInput, printQuit, printServerHelp } from "../internal/gamelogic/gamelogic.js";
-import { declareAndBind, SimpleQueueType } from "../internal/pubsub/consume.js";
+import { declareAndBind, SimpleQueueType, subscribeMsgPack } from "../internal/pubsub/consume.js";
+import { handlerGameLog } from "../client/handler.js";
 
 
 async function main() {
@@ -24,15 +25,21 @@ async function main() {
     }),
   );
 
-  await declareAndBind(
+  subscribeMsgPack(
     conn,
     ExchangePerilTopic,
     "game_logs",
     `${GameLogSlug}.*`,
     SimpleQueueType.Durable,
-  );
+    handlerGameLog()
+  )
 
   const channel = await conn.createConfirmChannel();
+
+  if (!process.stdin.isTTY) {
+    console.log("Non-interactive mode: skipping command input.");
+    return;
+  }
   printServerHelp();
 
   while (true) {

@@ -51,14 +51,16 @@ export enum AckType {
   NackDiscard, 
 };
 
-export async function subscribeJSON<T>(
+// (data: Buffer) => decode(data) as T
+
+async function subscribe<T>(
   conn: amqp.ChannelModel,
   exchange: string,
   queueName: string,
   key: string,
   queueType: SimpleQueueType,
   handler: (data: T) => Promise<AckType> | AckType,
-//   deserializer: (data: T) => T,
+  deserializer: (data: Buffer) => T,
 ): Promise<void> {
 
   const [channel, queueInfo] = await declareAndBind(
@@ -69,12 +71,14 @@ export async function subscribeJSON<T>(
     queueType, 
   );
 
+  await channel.prefetch(1);
+
   await channel.consume(queueInfo.queue, async (msg: amqp.ConsumeMessage | null) => {
     if (!msg) return;
 
     let data: T;
     try {
-      data = JSON.parse(msg.content.toString());
+      data = deserializer(msg.content)
     } catch (err) {
       console.error("Could not unmarshal message:", err);
       return;
@@ -108,6 +112,27 @@ export async function subscribeJSON<T>(
   });
 }
 
+export async function subscribeJSON<T>(
+  conn: amqp.ChannelModel,
+  exchange: string,
+  queueName: string,
+  key: string,
+  queueType: SimpleQueueType,
+  handler: (data: T) => Promise<AckType> | AckType,
+): Promise<void> {
+
+  subscribe(
+    conn,
+    exchange,
+    queueName,
+    key,
+    queueType,
+    handler,
+    (data: Buffer) => JSON.parse(data.toString()),
+  )
+
+}
+
 export async function subscribeMsgPack<T>(
     conn: amqp.ChannelModel,
     exchange: string,
@@ -117,50 +142,14 @@ export async function subscribeMsgPack<T>(
     handler: (data: T) => Promise<AckType> | AckType,
 ): Promise<void> {
 
-    const [channel, queueInfo] = await declareAndBind(
-    conn, 
-    exchange, 
-    queueName, 
-    key, 
-    queueType, 
-  );
+  subscribe(
+    conn,
+    exchange,
+    queueName,
+    key,
+    queueType,
+    handler,
+    (data: Buffer) => decode(data) as T,
+  )
 
-    await channel.consume(queueInfo.queue, async (msg: amqp.ConsumeMessage | null) => {
-        if (!msg) return;
-
-        let data: T;
-
-        try {
-            data = decode(msg.content) as T;
-        } catch (err) {
-            console.error("Could not decode message:", err);
-            return;
-        }
-        
-        try {
-            const result = await handler(data);
-            switch (result) {
-                case AckType.Ack:
-                    channel.ack(msg);
-                    console.log("Ack");
-                    break;
-                case AckType.NackDiscard:
-                    channel.nack(msg, false, false);
-                    console.log("NackDiscard");
-                    break;
-                case AckType.NackRequeue:
-                    channel.nack(msg, false, true);
-                    console.log("NackRequeue");
-                    break;
-                default:
-                    const unreachable: never = result;
-                    console.error("Unexpected ack type:", unreachable);
-                    return;
-            }
-        } catch (err) {
-            console.error("Error handling message:", err);
-            channel.nack(msg, false, false);
-            return;
-        }
-    });
 }
